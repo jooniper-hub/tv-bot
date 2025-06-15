@@ -8,7 +8,7 @@ import requests
 # load_dotenv() 제거
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_SECRET_KEY")
-WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
+WEBHOOK_KEY = os.getenv("WEBHOOK_KEY").strip()
 
 
 app = Flask(__name__)
