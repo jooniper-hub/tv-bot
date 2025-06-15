@@ -59,7 +59,8 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
 def webhook():
     data = request.get_json()
     print("📥 웹훅 수신:", data)
-
+    print("🔑 수신된 key:", data.get("key"))
+    print("🔐 저장된 key:", WEBHOOK_KEY)
     if not data or data.get("key") != WEBHOOK_KEY:
         return jsonify({"error": "Unauthorized"}), 403
 
