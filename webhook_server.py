@@ -4,13 +4,12 @@ import time
 import hmac
 import hashlib
 import requests
-from dotenv import load_dotenv
 
-# .env 환경변수 로드
-load_dotenv()
+# load_dotenv() 제거
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_SECRET_KEY")
 WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
+
 
 app = Flask(__name__)
 BASE_URL = "https://fapi.binance.com"  # 바이낸스 선물 API
