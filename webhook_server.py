@@ -14,21 +14,31 @@ BASE_URL = "https://fapi.binance.com"
 
 def send_order(symbol: str, side: str, quantity: float = 0.01):
     url = f"{BASE_URL}/fapi/v1/order"
+    timestamp = int(time.time() * 1000)
+
     params = {
         "symbol": symbol,
         "side": side,
         "type": "MARKET",
         "quantity": quantity,
-        "timestamp": int(time.time() * 1000)
+        "timestamp": timestamp
     }
-    query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+
+    # 쿼리 스트링 정렬 및 서명 생성
+    query_string = '&'.join([f"{k}={v}" for k, v in sorted(params.items())])
     signature = hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
     params["signature"] = signature
+
     headers = {
         "X-MBX-APIKEY": API_KEY
     }
-    response = requests.post(url, params=params, headers=headers)
-    print(f"📤 주문 전송 결과: {response.status_code} - {response.text}")
+
+    print(f"📤 [Binance 전송] {query_string}&signature={signature}")
+
+    # POST 요청은 쿼리스트링을 URL에 붙이는 방식으로 전송
+    response = requests.post(url, headers=headers, params=params)
+
+    print(f"📥 [Binance 응답] {response.status_code} - {response.text}")
     return response.json()
 
 @app.route("/webhook", methods=["POST"])
