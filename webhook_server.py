@@ -12,6 +12,7 @@ WEBHOOK_KEY = os.getenv("WEBHOOK_KEY").strip()
 app = Flask(__name__)
 BASE_URL = "https://fapi.binance.com"
 
+
 def send_order(symbol: str, side: str, quantity: float = 0.01):
     url = f"{BASE_URL}/fapi/v1/order"
     timestamp = int(time.time() * 1000)
@@ -32,7 +33,7 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
         "X-MBX-APIKEY": API_KEY
     }
 
-    print(f"📤 [Binance 전송] {query_string}&signature={signature}")
+    print(f"\U0001f4e4 [Binance 전송] {query_string}&signature={signature}")
     response = requests.post(url, headers=headers, params=params)
 
     try:
@@ -47,6 +48,7 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
         print("✅ 주문 성공:", result)
 
     return result
+
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -74,6 +76,7 @@ def webhook():
     else:
         print("❗ 잘못된 신호:", signal)
         return jsonify({"error": "잘못된 메시지 형식"}), 400
+
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
