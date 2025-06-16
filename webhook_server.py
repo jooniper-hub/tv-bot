@@ -25,7 +25,7 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
         "timestamp": timestamp
     }
 
-    query_string = '&'.join([f"{k}={v}" for k, v in sorted(params.items())])
+query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
     signature = hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
     params["signature"] = signature
 
