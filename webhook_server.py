@@ -24,18 +24,20 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
         "timestamp": timestamp
     }
 
-    query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+    # 파라미터 알파벳 순 정렬
+    ordered_params = dict(sorted(params.items()))
+    query_string = '&'.join([f"{k}={v}" for k, v in ordered_params.items()])
     signature = hmac.new(
         API_SECRET.encode(), query_string.encode(), hashlib.sha256
     ).hexdigest()
-    params["signature"] = signature
+    ordered_params["signature"] = signature
 
     headers = {
         "X-MBX-APIKEY": API_KEY
     }
 
     print(f"\U0001f4e4 [Binance 전송] {query_string}&signature={signature}")
-    response = requests.post(url, headers=headers, params=params)
+    response = requests.post(url, headers=headers, params=ordered_params)
 
     try:
         result = response.json()
