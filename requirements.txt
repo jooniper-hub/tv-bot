@@ -3,4 +3,3 @@ requests
 python-dotenv
 python-binance
 numpy
-TA-Lib
