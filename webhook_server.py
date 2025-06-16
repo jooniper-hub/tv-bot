@@ -4,6 +4,7 @@ import time
 import hmac
 import hashlib
 import requests
+from collections import OrderedDict
 
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_SECRET_KEY")
@@ -16,28 +17,25 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
     url = f"{BASE_URL}/fapi/v1/order"
     timestamp = int(time.time() * 1000)
 
-    params = {
+    params = OrderedDict(sorted({
         "symbol": symbol,
         "side": side,
         "type": "MARKET",
         "quantity": quantity,
+        "recvWindow": 5000,
         "timestamp": timestamp
-    }
+    }.items()))
 
-    # 파라미터 알파벳 순 정렬
-    ordered_params = dict(sorted(params.items()))
-    query_string = '&'.join([f"{k}={v}" for k, v in ordered_params.items()])
-    signature = hmac.new(
-        API_SECRET.encode(), query_string.encode(), hashlib.sha256
-    ).hexdigest()
-    ordered_params["signature"] = signature
+    query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
+    signature = hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
+    params["signature"] = signature
 
     headers = {
         "X-MBX-APIKEY": API_KEY
     }
 
-    print(f"\U0001f4e4 [Binance 전송] {query_string}&signature={signature}")
-    response = requests.post(url, headers=headers, params=ordered_params)
+    print(f"📤 [Binance 전송] {query_string}&signature={signature}")
+    response = requests.post(url, headers=headers, params=params)
 
     try:
         result = response.json()
