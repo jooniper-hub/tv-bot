@@ -24,7 +24,6 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
         "timestamp": timestamp
     }
 
-    # 쿼리 스트링 정렬 및 서명 생성
     query_string = '&'.join([f"{k}={v}" for k, v in sorted(params.items())])
     signature = hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
     params["signature"] = signature
@@ -34,12 +33,20 @@ def send_order(symbol: str, side: str, quantity: float = 0.01):
     }
 
     print(f"📤 [Binance 전송] {query_string}&signature={signature}")
-
-    # POST 요청은 쿼리스트링을 URL에 붙이는 방식으로 전송
     response = requests.post(url, headers=headers, params=params)
 
-    print(f"📥 [Binance 응답] {response.status_code} - {response.text}")
-    return response.json()
+    try:
+        result = response.json()
+    except Exception as e:
+        print(f"❌ 응답 파싱 실패: {e}")
+        return {"error": "Invalid JSON response", "status_code": response.status_code}
+
+    if response.status_code != 200 or ("code" in result and result["code"] < 0):
+        print("🚨 주문 실패:", result)
+    else:
+        print("✅ 주문 성공:", result)
+
+    return result
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
@@ -51,11 +58,16 @@ def webhook():
         return jsonify({"error": "Unauthorized"}), 403
 
     signal = data.get("message", "").strip().upper()
+    print("📡 수신된 시그널:", signal)
 
     if signal == "LONG":
         return jsonify(send_order("ETHUSDT", "BUY"))
     elif signal == "SHORT":
         return jsonify(send_order("ETHUSDT", "SELL"))
+    elif signal == "LONG_EXIT":
+        return jsonify(send_order("ETHUSDT", "SELL"))
+    elif signal == "SHORT_EXIT":
+        return jsonify(send_order("ETHUSDT", "BUY"))
     elif signal == "PING":
         print("✅ 서버 연결 확인용 ping 수신됨")
         return jsonify({"status": "pong"}), 200
