@@ -1,81 +1,71 @@
 from flask import Flask, request, jsonify
 import os
-import time
-import hmac
-import hashlib
-import requests
-from collections import OrderedDict
+from binance.client import Client
+
+app = Flask(__name__)
 
 API_KEY = os.getenv("BINANCE_API_KEY")
 API_SECRET = os.getenv("BINANCE_SECRET_KEY")
-WEBHOOK_KEY = os.getenv("WEBHOOK_KEY").strip()
+WEBHOOK_KEY = os.getenv("WEBHOOK_KEY")
 
-app = Flask(__name__)
-BASE_URL = "https://fapi.binance.com"
+client = Client(API_KEY, API_SECRET)
 
-def send_order(symbol: str, side: str, quantity: float = 0.01):
-    url = f"{BASE_URL}/fapi/v1/order"
-    timestamp = int(time.time() * 1000)
+positions = {}  # 현재 심볼별 포지션 상태 저장: "LONG", "SHORT", None
 
-    params = OrderedDict(sorted({
-        "symbol": symbol,
-        "side": side,
-        "type": "MARKET",
-        "quantity": quantity,
-        "recvWindow": 5000,
-        "timestamp": timestamp
-    }.items()))
+SYMBOL = "ETHUSDT"
+QTY = 0.01  # 주문 수량, 필요에 따라 수정
 
-    query_string = '&'.join([f"{k}={v}" for k, v in params.items()])
-    signature = hmac.new(API_SECRET.encode(), query_string.encode(), hashlib.sha256).hexdigest()
-    params["signature"] = signature
-
-    headers = {
-        "X-MBX-APIKEY": API_KEY
-    }
-
-    print(f"📤 [Binance 전송] {query_string}&signature={signature}")
-    response = requests.post(url, headers=headers, params=params)
-
+def place_order(symbol, side, quantity):
     try:
-        result = response.json()
+        order = client.futures_create_order(
+            symbol=symbol,
+            side=side,
+            type="MARKET",
+            quantity=quantity
+        )
+        return order
     except Exception as e:
-        print(f"❌ 응답 파싱 실패: {e}")
-        return {"error": "Invalid JSON response", "status_code": response.status_code}
-
-    if response.status_code != 200 or ("code" in result and result["code"] < 0):
-        print("🚨 주문 실패:", result)
-    else:
-        print("✅ 주문 성공:", result)
-
-    return result
+        return {"error": str(e)}
 
 @app.route("/webhook", methods=["POST"])
 def webhook():
-    data = request.get_json()
-    print("📥 웹훅 수신:", data)
-
+    data = request.json
     if not data or data.get("key") != WEBHOOK_KEY:
-        print("❌ 인증 실패 또는 빈 데이터")
         return jsonify({"error": "Unauthorized"}), 403
 
-    signal = data.get("message", "").strip().upper()
-    print("📡 수신된 시그널:", signal)
+    signal = data.get("signal")
+    pos = positions.get(SYMBOL, None)
 
-    if signal == "LONG":
-        return jsonify(send_order("ETHUSDT", "BUY"))
-    elif signal == "SHORT":
-        return jsonify(send_order("ETHUSDT", "SELL"))
-    elif signal == "LONG_EXIT":
-        return jsonify(send_order("ETHUSDT", "SELL"))
-    elif signal == "SHORT_EXIT":
-        return jsonify(send_order("ETHUSDT", "BUY"))
-    elif signal == "PING":
-        print("✅ 서버 연결 확인용 ping 수신됨")
-        return jsonify({"status": "pong"}), 200
-    else:
-        print("❗ 잘못된 신호:", signal)
-        return jsonify({"error": "잘못된 메시지 형식"}), 400
+    try:
+        if signal == "LONG_ENTRY":
+            if pos != "LONG":
+                res = place_order(SYMBOL, "BUY", QTY)
+                positions[SYMBOL] = "LONG"
+                return jsonify({"msg": "Long entry executed", "result": res})
+
+        elif signal == "SHORT_ENTRY":
+            if pos != "SHORT":
+                res = place_order(SYMBOL, "SELL", QTY)
+                positions[SYMBOL] = "SHORT"
+                return jsonify({"msg": "Short entry executed", "result": res})
+
+        elif signal == "LONG_EXIT":
+            if pos == "LONG":
+                res = place_order(SYMBOL, "SELL", QTY)
+                positions[SYMBOL] = None
+                return jsonify({"msg": "Long exit executed", "result": res})
+
+        elif signal == "SHORT_EXIT":
+            if pos == "SHORT":
+                res = place_order(SYMBOL, "BUY", QTY)
+                positions[SYMBOL] = None
+                return jsonify({"msg": "Short exit executed", "result": res})
+
+        else:
+            return jsonify({"error": "Unknown signal"}), 400
+
+    except Exception as e:
+        return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 8080))
